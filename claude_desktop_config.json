@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "codebase-navigator": {
+      "command": "/Users/alex/Documents/Apprenticeship/MCP_workshop/.venv/bin/python",
+      "args": [
+        "/Users/alex/Documents/Apprenticeship/MCP_workshop/server.py"
+      ]
+    }
+  }
+}
