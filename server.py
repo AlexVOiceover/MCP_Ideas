@@ -7,14 +7,10 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 import mcp.server.stdio
 import mcp.types as types
-import docker
 
 
 # Create server instance
-server = Server("docker-health-server")
-
-# Initialize Docker client
-docker_client = docker.from_env()
+server = Server("workshop-server")
 
 
 @server.list_tools()
@@ -22,53 +18,25 @@ async def handle_list_tools() -> list[types.Tool]:
     """List available tools"""
     return [
         types.Tool(
-            name="list_containers",
-            description="List all running Docker containers with their status",
+            name="ping",
+            description="Basic liveness check - returns OK status",
             inputSchema={
                 "type": "object",
                 "properties": {},
             },
         ),
         types.Tool(
-            name="stop_container",
-            description="Stop a running Docker container by name",
+            name="weather",
+            description="Get current weather for a city",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {
+                    "city": {
                         "type": "string",
-                        "description": "The name of the container to stop",
+                        "description": "The city name to get weather for",
                     }
                 },
-                "required": ["name"],
-            },
-        ),
-        types.Tool(
-            name="start_container",
-            description="Start a stopped Docker container by name",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the container to start",
-                    }
-                },
-                "required": ["name"],
-            },
-        ),
-        types.Tool(
-            name="get_logs",
-            description="Get recent logs from a Docker container",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the container to get logs from",
-                    }
-                },
-                "required": ["name"],
+                "required": ["city"],
             },
         ),
     ]
@@ -80,36 +48,14 @@ async def handle_call_tool(
 ) -> list[types.TextContent]:
     """Handle tool calls"""
 
-    if name == "list_containers":
-        # Get all containers (running and stopped)
-        containers = docker_client.containers.list(all=True)
+    if name == "ping":
+        return [types.TextContent(type="text", text="pong! Server is running.")]
 
-        # Build output text
-        output = f"Total containers: {len(containers)}\n\n"
-        for container in containers:
-            output += f"Name: {container.name}\n"
-            output += f"Status: {container.status}\n"
-            output += f"Image: {container.image.tags[0] if container.image.tags else 'N/A'}\n\n"
-
-        return [types.TextContent(type="text", text=output)]
-
-    elif name == "stop_container":
-        container_name = arguments["name"]
-        container = docker_client.containers.get(container_name)
-        container.stop()
-        return [types.TextContent(type="text", text=f"Container '{container_name}' stopped successfully")]
-
-    elif name == "start_container":
-        container_name = arguments["name"]
-        container = docker_client.containers.get(container_name)
-        container.start()
-        return [types.TextContent(type="text", text=f"Container '{container_name}' started successfully")]
-
-    elif name == "get_logs":
-        container_name = arguments["name"]
-        container = docker_client.containers.get(container_name)
-        logs = container.logs(tail=50).decode('utf-8')
-        return [types.TextContent(type="text", text=f"Logs for '{container_name}':\n\n{logs}")]
+    elif name == "weather":
+        city = arguments["city"]
+        # Mock weather data
+        weather_info = f"Weather in {city}:\nTemperature: 22°C\nCondition: Sunny\nHumidity: 65%"
+        return [types.TextContent(type="text", text=weather_info)]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
@@ -123,7 +69,7 @@ async def main():
             read_stream,
             write_stream,
             InitializationOptions(
-                server_name="docker-health-server",
+                server_name="workshop-server",
                 server_version="1.0.0",
                 capabilities=server.get_capabilities(
                     notification_options=mcp.server.NotificationOptions(),
