@@ -37,3 +37,20 @@ Get-Process | Where-Object { $_.Path -like "*@modelcontextprotocol*" } | Stop-Pr
 - Ensure `--scope user` flag is used for global access
 - Check that fastmcp is installed via pipx
 - Verify the server path in the configuration
+
+
+## Download image and run HomeAssistant container on port 8123
+
+docker stop homeassistant
+docker rm homeassistant
+
+docker run -d \
+  --name homeassistant \
+  --restart=unless-stopped \
+  -e TZ=Europe/London \
+  -v homeassistant_config:/config \
+  -p 8123:8123 \
+  ghcr.io/home-assistant/home-assistant:stable
+
+
+# Create a long-lived access token on Home Assistant
