@@ -71,7 +71,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "temperature": {
                         "type": "number",
                         "description": "Target temperature in Celsius",
-                    }
+                    },
                 },
                 "required": ["entity_id", "temperature"],
             },
@@ -166,7 +166,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_cameras",
-            description="List all available cameras",
+            description="List all available cameras (laptop_camera is the front door camera)",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -187,14 +187,14 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="send_camera_to_telegram",
-            description="Send a camera snapshot to Telegram",
+            name="send_camera_snapshot",
+            description="Send camera snapshot to Telegram using custom script (only works with laptop_camera, not demo cameras). Note: laptop_camera is the front door camera. Use this when user asks to show what's at the front door.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entity_id": {
                         "type": "string",
-                        "description": "The entity ID of the camera (e.g., camera.demo_camera)",
+                        "description": "The entity ID of the camera. Use camera.laptop_camera for the front door camera.",
                     }
                 },
                 "required": ["entity_id"],
@@ -220,7 +220,9 @@ async def handle_call_tool(
         states = response.json()
 
         # Filter only lights
-        lights = [entity for entity in states if entity["entity_id"].startswith("light.")]
+        lights = [
+            entity for entity in states if entity["entity_id"].startswith("light.")
+        ]
 
         output = f"Found {len(lights)} light(s):\n\n"
         for light in lights:
@@ -239,7 +241,7 @@ async def handle_call_tool(
         response = requests.post(
             f"{HA_URL}/api/services/light/toggle",
             headers=headers,
-            json={"entity_id": entity_id}
+            json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Toggled {entity_id}")]
 
@@ -250,9 +252,10 @@ async def handle_call_tool(
 
         # Filter temperature sensors
         temp_sensors = [
-            entity for entity in states
-            if "temperature" in entity["entity_id"] or
-               entity["attributes"].get("device_class") == "temperature"
+            entity
+            for entity in states
+            if "temperature" in entity["entity_id"]
+            or entity["attributes"].get("device_class") == "temperature"
         ]
 
         output = f"Temperature sensors ({len(temp_sensors)}):\n\n"
@@ -269,9 +272,11 @@ async def handle_call_tool(
         response = requests.post(
             f"{HA_URL}/api/services/climate/set_temperature",
             headers=headers,
-            json={"entity_id": entity_id, "temperature": temperature}
+            json={"entity_id": entity_id, "temperature": temperature},
         )
-        return [types.TextContent(type="text", text=f"Set {entity_id} to {temperature}°C")]
+        return [
+            types.TextContent(type="text", text=f"Set {entity_id} to {temperature}°C")
+        ]
 
     elif name == "get_sun":
         # Get sun entity (built-in to Home Assistant)
@@ -307,7 +312,7 @@ async def handle_call_tool(
         requests.post(
             f"{HA_URL}/api/services/lock/lock",
             headers=headers,
-            json={"entity_id": entity_id}
+            json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Locked {entity_id}")]
 
@@ -316,7 +321,7 @@ async def handle_call_tool(
         requests.post(
             f"{HA_URL}/api/services/lock/unlock",
             headers=headers,
-            json={"entity_id": entity_id}
+            json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Unlocked {entity_id}")]
 
@@ -325,7 +330,9 @@ async def handle_call_tool(
         states = response.json()
 
         # Filter climate devices
-        climates = [entity for entity in states if entity["entity_id"].startswith("climate.")]
+        climates = [
+            entity for entity in states if entity["entity_id"].startswith("climate.")
+        ]
 
         output = f"Climate devices ({len(climates)}):\n\n"
         for climate in climates:
@@ -344,7 +351,7 @@ async def handle_call_tool(
         requests.post(
             f"{HA_URL}/api/services/cover/open_cover",
             headers=headers,
-            json={"entity_id": entity_id}
+            json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Opening {entity_id}")]
 
@@ -353,7 +360,7 @@ async def handle_call_tool(
         requests.post(
             f"{HA_URL}/api/services/cover/close_cover",
             headers=headers,
-            json={"entity_id": entity_id}
+            json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Closing {entity_id}")]
 
@@ -363,9 +370,10 @@ async def handle_call_tool(
 
         # Filter sensors and binary sensors
         sensors = [
-            entity for entity in states
-            if entity["entity_id"].startswith("sensor.") or
-               entity["entity_id"].startswith("binary_sensor.")
+            entity
+            for entity in states
+            if entity["entity_id"].startswith("sensor.")
+            or entity["entity_id"].startswith("binary_sensor.")
         ]
 
         output = f"Sensors ({len(sensors)}):\n\n"
@@ -380,13 +388,20 @@ async def handle_call_tool(
         response = requests.get(f"{HA_URL}/api/states", headers=headers)
         states = response.json()
 
-        # Filter cameras
-        cameras = [entity for entity in states if entity["entity_id"].startswith("camera.")]
+        # Filter cameras - exclude demo cameras, only show laptop_camera
+        cameras = [
+            entity for entity in states
+            if entity["entity_id"].startswith("camera.")
+            and not entity["entity_id"].startswith("camera.demo")
+            and "demo" not in entity["entity_id"].lower()
+        ]
 
         output = f"Found {len(cameras)} camera(s):\n\n"
         for camera in cameras:
             state = camera["state"]
-            friendly_name = camera["attributes"].get("friendly_name", camera["entity_id"])
+            friendly_name = camera["attributes"].get(
+                "friendly_name", camera["entity_id"]
+            )
             output += f"- {camera['entity_id']} ({friendly_name}): {state}\n"
 
         return [types.TextContent(type="text", text=output)]
@@ -397,35 +412,45 @@ async def handle_call_tool(
         requests.post(
             f"{HA_URL}/api/services/telegram_bot/send_message",
             headers=headers,
-            json={
-                "message": message,
-                "target": TELEGRAM_CHAT_ID
-            }
+            json={"message": message, "target": TELEGRAM_CHAT_ID},
         )
-        return [types.TextContent(type="text", text=f"Sent message to Telegram: '{message}'")]
+        return [
+            types.TextContent(
+                type="text", text=f"Sent message to Telegram: '{message}'"
+            )
+        ]
 
-    elif name == "send_camera_to_telegram":
+    elif name == "send_camera_snapshot":
         entity_id = arguments["entity_id"]
 
-        # For demo cameras, use a placeholder image URL
-        # In a real setup, you'd use the actual camera snapshot
-        demo_image_url = "https://hips.hearstapps.com/ghk.h-cdn.co/assets/17/30/dachshund.jpg"
+        # Block demo cameras
+        if entity_id.startswith("camera.demo") or "demo" in entity_id.lower():
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Error: Demo cameras are not supported. Please use camera.laptop_camera instead."
+                )
+            ]
 
-        # Send the snapshot via Telegram
+        # Call the custom Home Assistant script
         response = requests.post(
-            f"{HA_URL}/api/services/telegram_bot/send_photo",
+            f"{HA_URL}/api/services/script/send_camera_snapshot",
             headers=headers,
-            json={
-                "url": demo_image_url,
-                "caption": f"Camera snapshot from {entity_id} (demo image)"
-            }
+            json={"entity_id": entity_id},
         )
 
         # Check if request was successful
         if response.status_code == 200:
-            return [types.TextContent(type="text", text=f"Sent camera snapshot from {entity_id} to Telegram")]
+            return [
+                types.TextContent(type="text", text=f"Snapshot sent for {entity_id}")
+            ]
         else:
-            return [types.TextContent(type="text", text=f"Error sending photo: {response.status_code} - {response.text}")]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Error calling script: {response.status_code} - {response.text}",
+                )
+            ]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
