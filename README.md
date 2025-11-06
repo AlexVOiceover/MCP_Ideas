@@ -3,7 +3,7 @@
 Launch Inspector for local testing:
 
 ```bash
-npx @modelcontextprotocol/inspector python server.py
+npx @modelcontextprotocol/inspector python server_tello.py
 ```
 
 Inspector opens at [http://localhost:5173](http://localhost:5173)
