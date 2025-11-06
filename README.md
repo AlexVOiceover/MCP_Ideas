@@ -54,3 +54,7 @@ docker run -d \
 
 
 # Create a long-lived access token on Home Assistant
+
+# Command to run it on Goose
+# Dont add environment variables
+/Users/alex/Documents/Apprenticeship/MCP_Ideas/.venv/bin/python /Users/alex/Documents/Apprenticeship/MCP_Ideas/server.py
