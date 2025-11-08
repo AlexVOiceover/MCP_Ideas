@@ -214,6 +214,94 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["entity_id"],
             },
         ),
+        types.Tool(
+            name="get_switches",
+            description="Get all switches and their current status (on/off). Includes smart plugs like Tapo.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="turn_on_switch",
+            description="Turn a switch on by its entity ID (e.g., switch.tapo_plug)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the switch (e.g., switch.tapo_plug)",
+                    }
+                },
+                "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="turn_off_switch",
+            description="Turn a switch off by its entity ID (e.g., switch.tapo_plug)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the switch (e.g., switch.tapo_plug)",
+                    }
+                },
+                "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="toggle_switch",
+            description="Toggle a switch on/off by its entity ID (e.g., switch.tapo_plug)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the switch (e.g., switch.tapo_plug)",
+                    }
+                },
+                "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="get_media_players",
+            description="Get all available media players to use with text-to-speech",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_tts_engines",
+            description="Get all available TTS engines/entities",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="speak",
+            description="Speak text aloud using text-to-speech through a media player. Use this to make the system speak, read messages, or produce audio output. Automatically detects the best available media player if not specified.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "The text message to speak out loud",
+                    },
+                    "media_player_entity_id": {
+                        "type": "string",
+                        "description": "Optional: The entity ID of the media player (e.g., media_player.google_speaker). If not provided, will use the first available media player.",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Optional: Language code (e.g., 'en' for English, 'es' for Spanish). Defaults to 'en'",
+                    }
+                },
+                "required": ["message"],
+            },
+        ),
     ]
 
 
@@ -517,6 +605,135 @@ async def handle_call_tool(
                     text=f"Error getting snapshot: {str(e)}",
                 )
             ]
+
+    elif name == "get_switches":
+        response = requests.get(f"{HA_URL}/api/states", headers=headers)
+        states = response.json()
+
+        # Filter switches
+        switches = [entity for entity in states if entity["entity_id"].startswith("switch.")]
+
+        output = f"Found {len(switches)} switch(es):\n\n"
+        for switch in switches:
+            state = switch["state"]
+            friendly_name = switch["attributes"].get("friendly_name", switch["entity_id"])
+            output += f"- {switch['entity_id']} ({friendly_name}): {state}\n"
+
+        return [types.TextContent(type="text", text=output)]
+
+    elif name == "turn_on_switch":
+        entity_id = arguments["entity_id"]
+        requests.post(
+            f"{HA_URL}/api/services/switch/turn_on",
+            headers=headers,
+            json={"entity_id": entity_id},
+        )
+        return [types.TextContent(type="text", text=f"Turned on {entity_id}")]
+
+    elif name == "turn_off_switch":
+        entity_id = arguments["entity_id"]
+        requests.post(
+            f"{HA_URL}/api/services/switch/turn_off",
+            headers=headers,
+            json={"entity_id": entity_id},
+        )
+        return [types.TextContent(type="text", text=f"Turned off {entity_id}")]
+
+    elif name == "toggle_switch":
+        entity_id = arguments["entity_id"]
+        requests.post(
+            f"{HA_URL}/api/services/switch/toggle",
+            headers=headers,
+            json={"entity_id": entity_id},
+        )
+        return [types.TextContent(type="text", text=f"Toggled {entity_id}")]
+
+    elif name == "get_media_players":
+        response = requests.get(f"{HA_URL}/api/states", headers=headers)
+        states = response.json()
+
+        # Filter media players
+        media_players = [entity for entity in states if entity["entity_id"].startswith("media_player.")]
+
+        output = f"Found {len(media_players)} media player(s):\n\n"
+        for player in media_players:
+            state = player["state"]
+            friendly_name = player["attributes"].get("friendly_name", player["entity_id"])
+            output += f"- {player['entity_id']} ({friendly_name}): {state}\n"
+
+        return [types.TextContent(type="text", text=output)]
+
+    elif name == "get_tts_engines":
+        response = requests.get(f"{HA_URL}/api/states", headers=headers)
+        states = response.json()
+
+        # Filter TTS entities
+        tts_engines = [entity for entity in states if entity["entity_id"].startswith("tts.")]
+
+        output = f"Found {len(tts_engines)} TTS engine(s):\n\n"
+        for engine in tts_engines:
+            state = engine["state"]
+            friendly_name = engine["attributes"].get("friendly_name", engine["entity_id"])
+            output += f"- {engine['entity_id']} ({friendly_name}): {state}\n"
+
+        return [types.TextContent(type="text", text=output)]
+
+    elif name == "speak":
+        message = arguments["message"]
+        media_player_entity_id = arguments.get("media_player_entity_id")
+        language = arguments.get("language", "en")
+
+        # If no media player specified, auto-detect the first available one
+        if not media_player_entity_id:
+            response = requests.get(f"{HA_URL}/api/states", headers=headers)
+            states = response.json()
+            media_players = [entity for entity in states if entity["entity_id"].startswith("media_player.")]
+
+            if media_players:
+                media_player_entity_id = media_players[0]["entity_id"]
+            else:
+                return [types.TextContent(type="text", text="Error: No media players found. Please specify a media player entity ID.")]
+
+        # Use tts.speak service with google_translate_tts
+        # Try the new format first (Home Assistant 2024+)
+        payload = {
+            "target": {
+                "entity_id": "tts.google_translate_en_com"
+            },
+            "data": {
+                "media_player_entity_id": media_player_entity_id,
+                "message": message,
+                "language": language,
+            }
+        }
+
+        response = requests.post(
+            f"{HA_URL}/api/services/tts/speak",
+            headers=headers,
+            json=payload,
+        )
+
+        if response.status_code in [200, 204]:
+            return [types.TextContent(type="text", text=f"Speaking: '{message}' on {media_player_entity_id}")]
+        else:
+            # If that fails, try the legacy format
+            legacy_payload = {
+                "entity_id": "tts.google_translate_en_com",
+                "media_player_entity_id": media_player_entity_id,
+                "message": message,
+                "language": language,
+            }
+
+            response2 = requests.post(
+                f"{HA_URL}/api/services/tts/speak",
+                headers=headers,
+                json=legacy_payload,
+            )
+
+            if response2.status_code in [200, 204]:
+                return [types.TextContent(type="text", text=f"Speaking: '{message}' on {media_player_entity_id}")]
+            else:
+                return [types.TextContent(type="text", text=f"Error: {response.status_code} - {response.text}\n\nNew payload: {payload}\n\nLegacy payload: {legacy_payload}\n\nLegacy response: {response2.status_code} - {response2.text}")]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
