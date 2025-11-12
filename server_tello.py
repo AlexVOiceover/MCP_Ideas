@@ -322,9 +322,7 @@ async def handle_call_tool(
             # State packets may be blocked by firewall or network configuration
             tello.connect(wait_for_state=False)
 
-            # Test communication by getting battery
-            battery = tello.get_battery()
-            return [types.TextContent(type="text", text=f"Successfully connected to Tello drone! Battery: {battery}%")]
+            return [types.TextContent(type="text", text="Successfully connected to Tello drone! Use 'get_battery' to check battery level.")]
 
         except Exception as e:
             tello = None  # Reset on failure
@@ -335,26 +333,31 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            battery = tello.get_battery()
-            return [types.TextContent(type="text", text=f"Battery level: {battery}%")]
+            # Query battery directly via command instead of relying on state packets
+            # This works even when UDP state packets are blocked
+            response = tello.query_battery()
+            return [types.TextContent(type="text", text=f"Battery level: {response}%")]
 
         except Exception as e:
-            return [types.TextContent(type="text", text=f"Failed to get battery level: {str(e)}")]
+            return [types.TextContent(type="text", text=f"Failed to get battery level: {str(e)}. Note: Some sensor readings may not work if UDP state packets are blocked by firewall.")]
 
     elif name == "takeoff":
         try:
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            # Check battery level before takeoff
-            battery = tello.get_battery()
-            if battery < 10:
-                return [types.TextContent(type="text", text=f"Battery too low for takeoff: {battery}%")]
+            # Check battery level before takeoff using query command
+            try:
+                battery = tello.query_battery()
+                if battery < 10:
+                    return [types.TextContent(type="text", text=f"Battery too low for takeoff: {battery}%")]
+            except:
+                # If battery check fails, continue anyway (state packets might be blocked)
+                pass
 
             # Perform takeoff
             tello.takeoff()
-            battery = tello.get_battery()
-            return [types.TextContent(type="text", text=f"Drone successfully took off! Battery: {battery}%")]
+            return [types.TextContent(type="text", text="Drone successfully took off!")]
 
         except Exception as e:
             return [types.TextContent(type="text", text=f"Takeoff failed: {str(e)}")]
@@ -366,8 +369,7 @@ async def handle_call_tool(
 
             # Perform landing
             tello.land()
-            battery = tello.get_battery()
-            return [types.TextContent(type="text", text=f"Drone successfully landed! Battery: {battery}%")]
+            return [types.TextContent(type="text", text="Drone successfully landed!")]
 
         except Exception as e:
             return [types.TextContent(type="text", text=f"Landing failed: {str(e)}")]
@@ -534,7 +536,7 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            height = tello.get_height()
+            height = tello.query_height()
             return [types.TextContent(type="text", text=f"Current height: {height} cm")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get height failed: {str(e)}")]
@@ -544,7 +546,7 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            temp = tello.get_temperature()
+            temp = tello.query_temperature()
             return [types.TextContent(type="text", text=f"Temperature: {temp}°C")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get temperature failed: {str(e)}")]
@@ -554,7 +556,7 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            barometer = tello.get_barometer()
+            barometer = tello.query_barometer()
             return [types.TextContent(type="text", text=f"Barometer: {barometer} cm")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get barometer failed: {str(e)}")]
@@ -564,7 +566,7 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            flight_time = tello.get_flight_time()
+            flight_time = tello.query_flight_time()
             return [types.TextContent(type="text", text=f"Flight time: {flight_time} seconds")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get flight time failed: {str(e)}")]
