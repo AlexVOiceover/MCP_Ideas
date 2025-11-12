@@ -265,7 +265,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="start_video_stream",
-            description="Start the video stream from the drone's camera",
+            description="Start the video stream from the drone's camera. Note: Requires UDP video packets (port 11111) which may be blocked by firewalls in WSL/Windows.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -281,7 +281,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_snapshot",
-            description="Capture a snapshot from the drone's camera and display it. The video stream must be started first.",
+            description="Capture a snapshot from the drone's camera and display it. Requires start_video_stream to be called first. May not work in WSL/Windows due to firewall blocking UDP video packets.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -289,7 +289,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="save_snapshot",
-            description="Capture a snapshot from the drone's camera and save it to disk. Returns the file path.",
+            description="Capture a snapshot from the drone's camera and save it to disk. Requires start_video_stream to be called first. May not work in WSL/Windows due to firewall blocking UDP video packets.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -642,7 +642,13 @@ async def handle_call_tool(
         except Exception as e:
             stream_active = False
             frame_read = None
-            return [types.TextContent(type="text", text=f"Failed to start video stream: {str(e)}")]
+            error_msg = str(e)
+
+            # Provide helpful context for common errors
+            if "unsuccessful" in error_msg or "Did not receive a response" in error_msg:
+                return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}\n\nNote: Video streaming requires UDP video packets (port 11111) which are often blocked by firewalls in WSL/Windows environments. The video stream uses the same UDP protocol that state packets use, which appears to be blocked in your setup. Camera features may not work without proper network configuration.")]
+            else:
+                return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}")]
 
     elif name == "stop_video_stream":
         try:
