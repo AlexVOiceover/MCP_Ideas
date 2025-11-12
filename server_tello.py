@@ -318,7 +318,9 @@ async def handle_call_tool(
                 return [types.TextContent(type="text", text="Already connected to drone")]
 
             tello = Tello()
-            tello.connect()
+            # Connect without waiting for state packets to avoid timeout issues
+            # State packets may be blocked by firewall or network configuration
+            tello.connect(wait_for_state=False)
 
             # Test communication by getting battery
             battery = tello.get_battery()
