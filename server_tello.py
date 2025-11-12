@@ -12,6 +12,7 @@ import base64
 import os
 from datetime import datetime
 import logging
+import re
 
 # cv2 is imported lazily when camera features are used
 # to avoid failing on systems without graphics libraries
@@ -336,7 +337,9 @@ async def handle_call_tool(
             # Query battery directly via command instead of relying on state packets
             # This works even when UDP state packets are blocked
             response = tello.query_battery()
-            return [types.TextContent(type="text", text=f"Battery level: {response}%")]
+            # Parse response - it may be an int or a string like "80"
+            battery = int(str(response).strip())
+            return [types.TextContent(type="text", text=f"Battery level: {battery}%")]
 
         except Exception as e:
             return [types.TextContent(type="text", text=f"Failed to get battery level: {str(e)}. Note: Some sensor readings may not work if UDP state packets are blocked by firewall.")]
@@ -526,8 +529,17 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            speed = tello.query_speed()
-            return [types.TextContent(type="text", text=f"Current speed: {speed} cm/s")]
+            # Use raw command instead of query_speed() which fails on float responses
+            response = tello.send_read_command('speed?')
+            # Parse response - strip any units if present
+            speed_str = str(response).strip()
+            # Extract numeric part (handle responses like "10.0" or "10")
+            match = re.search(r'[\d.]+', speed_str)
+            if match:
+                speed = float(match.group())
+                return [types.TextContent(type="text", text=f"Current speed: {speed} cm/s")]
+            else:
+                return [types.TextContent(type="text", text=f"Current speed: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get speed failed: {str(e)}")]
 
@@ -536,8 +548,19 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            height = tello.query_height()
-            return [types.TextContent(type="text", text=f"Current height: {height} cm")]
+            response = tello.query_height()
+            # Parse response - may include units like "dm" (decimeters)
+            height_str = str(response).strip()
+            match = re.search(r'([\d.]+)(dm|cm)?', height_str)
+            if match:
+                height = float(match.group(1))
+                unit = match.group(2)
+                # Convert decimeters to centimeters if needed
+                if unit == 'dm':
+                    height = height * 10
+                return [types.TextContent(type="text", text=f"Current height: {int(height)} cm")]
+            else:
+                return [types.TextContent(type="text", text=f"Current height: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get height failed: {str(e)}")]
 
@@ -546,8 +569,15 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            temp = tello.query_temperature()
-            return [types.TextContent(type="text", text=f"Temperature: {temp}°C")]
+            response = tello.query_temperature()
+            # Parse response - strip any units
+            temp_str = str(response).strip()
+            match = re.search(r'[\d.]+', temp_str)
+            if match:
+                temp = float(match.group())
+                return [types.TextContent(type="text", text=f"Temperature: {int(temp)}°C")]
+            else:
+                return [types.TextContent(type="text", text=f"Temperature: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get temperature failed: {str(e)}")]
 
@@ -556,8 +586,15 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            barometer = tello.query_barometer()
-            return [types.TextContent(type="text", text=f"Barometer: {barometer} cm")]
+            response = tello.query_barometer()
+            # Parse response - strip any units
+            baro_str = str(response).strip()
+            match = re.search(r'[\d.]+', baro_str)
+            if match:
+                barometer = float(match.group())
+                return [types.TextContent(type="text", text=f"Barometer: {barometer} cm")]
+            else:
+                return [types.TextContent(type="text", text=f"Barometer: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get barometer failed: {str(e)}")]
 
@@ -566,8 +603,15 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            flight_time = tello.query_flight_time()
-            return [types.TextContent(type="text", text=f"Flight time: {flight_time} seconds")]
+            response = tello.query_flight_time()
+            # Parse response - strip any units
+            time_str = str(response).strip()
+            match = re.search(r'[\d.]+', time_str)
+            if match:
+                flight_time = float(match.group())
+                return [types.TextContent(type="text", text=f"Flight time: {int(flight_time)} seconds")]
+            else:
+                return [types.TextContent(type="text", text=f"Flight time: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get flight time failed: {str(e)}")]
 
