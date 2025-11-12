@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python
 
 import asyncio
 from typing import Any
