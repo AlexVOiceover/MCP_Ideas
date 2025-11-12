@@ -8,6 +8,10 @@ from mcp.server.stdio import stdio_server
 import mcp.server.stdio
 import mcp.types as types
 from djitellopy import Tello
+import cv2
+import base64
+import os
+from datetime import datetime
 
 
 # Create server instance
@@ -15,6 +19,8 @@ server = Server("tello-drone-server")
 
 # Global Tello instance
 tello = None
+frame_read = None
+stream_active = False
 
 
 @server.list_tools()
@@ -250,6 +256,43 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {},
             },
         ),
+        types.Tool(
+            name="start_video_stream",
+            description="Start the video stream from the drone's camera",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="stop_video_stream",
+            description="Stop the video stream from the drone's camera",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_snapshot",
+            description="Capture a snapshot from the drone's camera and display it. The video stream must be started first.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="save_snapshot",
+            description="Capture a snapshot from the drone's camera and save it to disk. Returns the file path.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Optional: Custom filename for the snapshot. If not provided, uses timestamp.",
+                    }
+                },
+            },
+        ),
     ]
 
 
@@ -258,7 +301,7 @@ async def handle_call_tool(
     name: str, arguments: dict[str, Any]
 ) -> list[types.TextContent]:
     """Handle tool calls"""
-    global tello
+    global tello, frame_read, stream_active
 
     if name == "ping":
         return [types.TextContent(type="text", text="pong! Server is running.")]
@@ -527,6 +570,110 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text="EMERGENCY STOP ACTIVATED - All motors stopped")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Emergency stop failed: {str(e)}")]
+
+    elif name == "start_video_stream":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            if stream_active:
+                return [types.TextContent(type="text", text="Video stream is already active")]
+
+            tello.streamon()
+            frame_read = tello.get_frame_read()
+            stream_active = True
+
+            return [types.TextContent(type="text", text="Video stream started successfully. You can now capture snapshots.")]
+        except Exception as e:
+            stream_active = False
+            frame_read = None
+            return [types.TextContent(type="text", text=f"Failed to start video stream: {str(e)}")]
+
+    elif name == "stop_video_stream":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            if not stream_active:
+                return [types.TextContent(type="text", text="Video stream is not active")]
+
+            tello.streamoff()
+            stream_active = False
+            frame_read = None
+
+            return [types.TextContent(type="text", text="Video stream stopped")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Failed to stop video stream: {str(e)}")]
+
+    elif name == "get_snapshot":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            if not stream_active or frame_read is None:
+                return [types.TextContent(type="text", text="Video stream is not active. Use 'start_video_stream' first.")]
+
+            # Get the current frame
+            frame = frame_read.frame
+
+            if frame is None:
+                return [types.TextContent(type="text", text="No frame available. The camera might be initializing.")]
+
+            # Encode frame as JPEG
+            success, buffer = cv2.imencode('.jpg', frame)
+
+            if not success:
+                return [types.TextContent(type="text", text="Failed to encode frame as JPEG")]
+
+            # Convert to base64
+            image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+            return [
+                types.ImageContent(
+                    type="image",
+                    data=image_base64,
+                    mimeType="image/jpeg"
+                ),
+                types.TextContent(
+                    type="text",
+                    text="Snapshot captured from Tello drone camera"
+                )
+            ]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Failed to capture snapshot: {str(e)}")]
+
+    elif name == "save_snapshot":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            if not stream_active or frame_read is None:
+                return [types.TextContent(type="text", text="Video stream is not active. Use 'start_video_stream' first.")]
+
+            # Get the current frame
+            frame = frame_read.frame
+
+            if frame is None:
+                return [types.TextContent(type="text", text="No frame available. The camera might be initializing.")]
+
+            # Generate filename
+            if "filename" in arguments and arguments["filename"]:
+                filename = arguments["filename"]
+                if not filename.endswith(('.jpg', '.jpeg', '.png')):
+                    filename += '.jpg'
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"tello_snapshot_{timestamp}.jpg"
+
+            # Save the image
+            cv2.imwrite(filename, frame)
+
+            # Get absolute path
+            abs_path = os.path.abspath(filename)
+
+            return [types.TextContent(type="text", text=f"Snapshot saved to: {abs_path}")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Failed to save snapshot: {str(e)}")]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
