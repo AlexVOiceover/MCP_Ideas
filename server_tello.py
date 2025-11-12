@@ -11,9 +11,13 @@ from djitellopy import Tello
 import base64
 import os
 from datetime import datetime
+import logging
 
 # cv2 is imported lazily when camera features are used
 # to avoid failing on systems without graphics libraries
+
+# Suppress djitellopy's verbose logging to avoid interfering with MCP stdio protocol
+logging.getLogger('djitellopy').setLevel(logging.WARNING)
 
 
 # Create server instance
