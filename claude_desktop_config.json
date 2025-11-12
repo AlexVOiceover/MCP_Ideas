@@ -1,9 +1,17 @@
 {
   "mcpServers": {
-    "codebase-navigator": {
-      "command": "/Users/alex/Documents/Apprenticeship/MCP_workshop/.venv/bin/python",
+    "tello_drone_server": {
+      "command": "wsl",
       "args": [
-        "/Users/alex/Documents/Apprenticeship/MCP_workshop/server.py"
+        "/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python",
+        "/home/alex/FAC/workshops/MCP_Ideas/server_tello.py"
+      ]
+    },
+    "home_assistant_server": {
+      "command": "wsl",
+      "args": [
+        "/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python",
+        "/home/alex/FAC/workshops/MCP_Ideas/server_home_assistant.py"
       ]
     }
   }
