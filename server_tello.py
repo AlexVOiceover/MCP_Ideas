@@ -8,10 +8,12 @@ from mcp.server.stdio import stdio_server
 import mcp.server.stdio
 import mcp.types as types
 from djitellopy import Tello
-import cv2
 import base64
 import os
 from datetime import datetime
+
+# cv2 is imported lazily when camera features are used
+# to avoid failing on systems without graphics libraries
 
 
 # Create server instance
@@ -607,6 +609,11 @@ async def handle_call_tool(
 
     elif name == "get_snapshot":
         try:
+            import cv2
+        except ImportError:
+            return [types.TextContent(type="text", text="OpenCV (cv2) is not available. Camera features require graphics libraries (libGL) which may not be available in WSL.")]
+
+        try:
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
@@ -643,6 +650,11 @@ async def handle_call_tool(
             return [types.TextContent(type="text", text=f"Failed to capture snapshot: {str(e)}")]
 
     elif name == "save_snapshot":
+        try:
+            import cv2
+        except ImportError:
+            return [types.TextContent(type="text", text="OpenCV (cv2) is not available. Camera features require graphics libraries (libGL) which may not be available in WSL.")]
+
         try:
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
