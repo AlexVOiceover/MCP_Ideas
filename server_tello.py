@@ -537,9 +537,9 @@ async def handle_call_tool(
             match = re.search(r'[\d.]+', speed_str)
             if match:
                 speed = float(match.group())
-                return [types.TextContent(type="text", text=f"Current speed: {speed} cm/s")]
+                return [types.TextContent(type="text", text=f"Speed setting: {speed} cm/s (this is the max speed limit, not current velocity)")]
             else:
-                return [types.TextContent(type="text", text=f"Current speed: {response}")]
+                return [types.TextContent(type="text", text=f"Speed setting: {response}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Get speed failed: {str(e)}")]
 
@@ -548,7 +548,8 @@ async def handle_call_tool(
             if tello is None:
                 return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
 
-            response = tello.query_height()
+            # Use raw command instead of query_height() which may fail on formatted responses
+            response = tello.send_read_command('height?')
             # Parse response - may include units like "dm" (decimeters)
             height_str = str(response).strip()
             match = re.search(r'([\d.]+)(dm|cm)?', height_str)
