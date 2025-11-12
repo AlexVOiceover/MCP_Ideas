@@ -61,6 +61,195 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {},
             },
         ),
+        types.Tool(
+            name="move_forward",
+            description="Move the drone forward by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="move_back",
+            description="Move the drone backward by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="move_left",
+            description="Move the drone left by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="move_right",
+            description="Move the drone right by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="move_up",
+            description="Move the drone up by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="move_down",
+            description="Move the drone down by a specified distance (20-500 cm)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "distance": {
+                        "type": "integer",
+                        "description": "Distance to move in centimeters (20-500)",
+                    }
+                },
+                "required": ["distance"],
+            },
+        ),
+        types.Tool(
+            name="rotate_clockwise",
+            description="Rotate the drone clockwise by a specified angle (1-360 degrees)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "degrees": {
+                        "type": "integer",
+                        "description": "Angle to rotate in degrees (1-360)",
+                    }
+                },
+                "required": ["degrees"],
+            },
+        ),
+        types.Tool(
+            name="rotate_counter_clockwise",
+            description="Rotate the drone counter-clockwise by a specified angle (1-360 degrees)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "degrees": {
+                        "type": "integer",
+                        "description": "Angle to rotate in degrees (1-360)",
+                    }
+                },
+                "required": ["degrees"],
+            },
+        ),
+        types.Tool(
+            name="flip",
+            description="Make the drone perform a flip in a specified direction",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "description": "Direction to flip: 'left', 'right', 'forward', 'back'",
+                        "enum": ["left", "right", "forward", "back"],
+                    }
+                },
+                "required": ["direction"],
+            },
+        ),
+        types.Tool(
+            name="set_speed",
+            description="Set the drone's flight speed (10-100 cm/s)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "speed": {
+                        "type": "integer",
+                        "description": "Speed in cm/s (10-100)",
+                    }
+                },
+                "required": ["speed"],
+            },
+        ),
+        types.Tool(
+            name="get_speed",
+            description="Get the current flight speed of the drone",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_height",
+            description="Get the current height of the drone in centimeters",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_temperature",
+            description="Get the drone's internal temperature",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_barometer",
+            description="Get the barometer reading from the drone",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="get_flight_time",
+            description="Get the current flight time in seconds",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        types.Tool(
+            name="emergency",
+            description="Emergency stop - immediately stops all motors (USE WITH CAUTION)",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
     ]
 
 
@@ -131,6 +320,213 @@ async def handle_call_tool(
 
         except Exception as e:
             return [types.TextContent(type="text", text=f"Landing failed: {str(e)}")]
+
+    elif name == "move_forward":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_forward(distance)
+            return [types.TextContent(type="text", text=f"Moved forward {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move forward failed: {str(e)}")]
+
+    elif name == "move_back":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_back(distance)
+            return [types.TextContent(type="text", text=f"Moved back {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move back failed: {str(e)}")]
+
+    elif name == "move_left":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_left(distance)
+            return [types.TextContent(type="text", text=f"Moved left {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move left failed: {str(e)}")]
+
+    elif name == "move_right":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_right(distance)
+            return [types.TextContent(type="text", text=f"Moved right {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move right failed: {str(e)}")]
+
+    elif name == "move_up":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_up(distance)
+            return [types.TextContent(type="text", text=f"Moved up {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move up failed: {str(e)}")]
+
+    elif name == "move_down":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            distance = arguments["distance"]
+            if distance < 20 or distance > 500:
+                return [types.TextContent(type="text", text="Distance must be between 20 and 500 cm")]
+
+            tello.move_down(distance)
+            return [types.TextContent(type="text", text=f"Moved down {distance} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Move down failed: {str(e)}")]
+
+    elif name == "rotate_clockwise":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            degrees = arguments["degrees"]
+            if degrees < 1 or degrees > 360:
+                return [types.TextContent(type="text", text="Degrees must be between 1 and 360")]
+
+            tello.rotate_clockwise(degrees)
+            return [types.TextContent(type="text", text=f"Rotated clockwise {degrees} degrees")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Rotate clockwise failed: {str(e)}")]
+
+    elif name == "rotate_counter_clockwise":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            degrees = arguments["degrees"]
+            if degrees < 1 or degrees > 360:
+                return [types.TextContent(type="text", text="Degrees must be between 1 and 360")]
+
+            tello.rotate_counter_clockwise(degrees)
+            return [types.TextContent(type="text", text=f"Rotated counter-clockwise {degrees} degrees")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Rotate counter-clockwise failed: {str(e)}")]
+
+    elif name == "flip":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            direction = arguments["direction"]
+            if direction == "left":
+                tello.flip_left()
+            elif direction == "right":
+                tello.flip_right()
+            elif direction == "forward":
+                tello.flip_forward()
+            elif direction == "back":
+                tello.flip_back()
+            else:
+                return [types.TextContent(type="text", text=f"Invalid direction: {direction}")]
+
+            return [types.TextContent(type="text", text=f"Performed flip {direction}")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Flip failed: {str(e)}")]
+
+    elif name == "set_speed":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            speed = arguments["speed"]
+            if speed < 10 or speed > 100:
+                return [types.TextContent(type="text", text="Speed must be between 10 and 100 cm/s")]
+
+            tello.set_speed(speed)
+            return [types.TextContent(type="text", text=f"Speed set to {speed} cm/s")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Set speed failed: {str(e)}")]
+
+    elif name == "get_speed":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            speed = tello.query_speed()
+            return [types.TextContent(type="text", text=f"Current speed: {speed} cm/s")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Get speed failed: {str(e)}")]
+
+    elif name == "get_height":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            height = tello.get_height()
+            return [types.TextContent(type="text", text=f"Current height: {height} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Get height failed: {str(e)}")]
+
+    elif name == "get_temperature":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            temp = tello.get_temperature()
+            return [types.TextContent(type="text", text=f"Temperature: {temp}°C")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Get temperature failed: {str(e)}")]
+
+    elif name == "get_barometer":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            barometer = tello.get_barometer()
+            return [types.TextContent(type="text", text=f"Barometer: {barometer} cm")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Get barometer failed: {str(e)}")]
+
+    elif name == "get_flight_time":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            flight_time = tello.get_flight_time()
+            return [types.TextContent(type="text", text=f"Flight time: {flight_time} seconds")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Get flight time failed: {str(e)}")]
+
+    elif name == "emergency":
+        try:
+            if tello is None:
+                return [types.TextContent(type="text", text="Not connected to drone. Use 'connect' tool first.")]
+
+            tello.emergency()
+            return [types.TextContent(type="text", text="EMERGENCY STOP ACTIVATED - All motors stopped")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Emergency stop failed: {str(e)}")]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
