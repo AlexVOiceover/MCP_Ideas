@@ -1,4 +1,4 @@
-#!/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python
+#!C:\Users\Alexander\Documents\FAC\MCP_Ideas\.venv\Scripts\python.exe
 
 import asyncio
 from typing import Any
@@ -30,7 +30,7 @@ async def handle_list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="get_lights",
-            description="Get all lights and their current status (on/off, brightness)",
+            description="Get all lights and their current status (on/off, brightness). If you dont find any light, there could be one plugged on a smart plug. You can use get_switches to find smart plugs.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -48,6 +48,78 @@ async def handle_list_tools() -> list[types.Tool]:
                     }
                 },
                 "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="turn_on_light",
+            description="Turn on a light by its entity ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the light (e.g., light.hue_bulb)",
+                    }
+                },
+                "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="turn_off_light",
+            description="Turn off a light by its entity ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the light (e.g., light.hue_bulb)",
+                    }
+                },
+                "required": ["entity_id"],
+            },
+        ),
+        types.Tool(
+            name="set_light_brightness",
+            description="Set the brightness of a light (0-255, or 0-100 as percentage)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the light (e.g., light.hue_bulb)",
+                    },
+                    "brightness": {
+                        "type": "number",
+                        "description": "Brightness level: 0-255 for absolute value, or 0-100 for percentage (will be converted to 0-255)",
+                    }
+                },
+                "required": ["entity_id", "brightness"],
+            },
+        ),
+        types.Tool(
+            name="set_light_color",
+            description="Set the RGB color of a light. Use this for Philips Hue and other color-capable lights.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "The entity ID of the light (e.g., light.hue_bulb)",
+                    },
+                    "red": {
+                        "type": "number",
+                        "description": "Red value (0-255)",
+                    },
+                    "green": {
+                        "type": "number",
+                        "description": "Green value (0-255)",
+                    },
+                    "blue": {
+                        "type": "number",
+                        "description": "Blue value (0-255)",
+                    }
+                },
+                "required": ["entity_id", "red", "green", "blue"],
             },
         ),
         types.Tool(
@@ -166,7 +238,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_cameras",
-            description="List all available cameras (laptop_camera is the front door camera)",
+            description="List all available cameras (logitechusb is the front door camera)",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -188,27 +260,27 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="send_camera_snapshot",
-            description="Send camera snapshot to Telegram using custom script (only works with laptop_camera, not demo cameras). Note: laptop_camera is the front door camera. Use this when user asks to show what's at the front door.",
+            description="Send camera snapshot to Telegram. Note: logitechusb is the front door camera. Defaults to camera.logitechusb if no entity_id is provided.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entity_id": {
                         "type": "string",
-                        "description": "The entity ID of the camera. Use camera.laptop_camera for the front door camera.",
+                        "description": "Optional: The entity ID of the camera. Defaults to camera.logitechusb if not provided.",
                     }
                 },
-                "required": ["entity_id"],
+                "required": [],
             },
         ),
         types.Tool(
             name="get_camera_snapshot",
-            description="Get camera snapshot and display it in the chat (only works with laptop_camera, not demo cameras). Note: laptop_camera is the front door camera. Use this when user asks to see what's at the front door.",
+            description="Get camera snapshot and display it in the chat. Note: logitechusb is the front door camera. Use this when user asks to see what's at the front door.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entity_id": {
                         "type": "string",
-                        "description": "The entity ID of the camera. Use camera.laptop_camera for the front door camera.",
+                        "description": "The entity ID of the camera. Use camera.logitechusb for the front door camera.",
                     }
                 },
                 "required": ["entity_id"],
@@ -297,7 +369,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "language": {
                         "type": "string",
                         "description": "Optional: Language code (e.g., 'en' for English, 'es' for Spanish). Defaults to 'en'",
-                    }
+                    },
                 },
                 "required": ["message"],
             },
@@ -346,6 +418,52 @@ async def handle_call_tool(
             json={"entity_id": entity_id},
         )
         return [types.TextContent(type="text", text=f"Toggled {entity_id}")]
+
+    elif name == "turn_on_light":
+        entity_id = arguments["entity_id"]
+        requests.post(
+            f"{HA_URL}/api/services/light/turn_on",
+            headers=headers,
+            json={"entity_id": entity_id},
+        )
+        return [types.TextContent(type="text", text=f"Turned on {entity_id}")]
+
+    elif name == "turn_off_light":
+        entity_id = arguments["entity_id"]
+        requests.post(
+            f"{HA_URL}/api/services/light/turn_off",
+            headers=headers,
+            json={"entity_id": entity_id},
+        )
+        return [types.TextContent(type="text", text=f"Turned off {entity_id}")]
+
+    elif name == "set_light_brightness":
+        entity_id = arguments["entity_id"]
+        brightness = arguments["brightness"]
+
+        # Convert percentage (0-100) to Home Assistant brightness (0-255) if needed
+        if brightness <= 100:
+            brightness = int((brightness / 100) * 255)
+
+        requests.post(
+            f"{HA_URL}/api/services/light/turn_on",
+            headers=headers,
+            json={"entity_id": entity_id, "brightness": brightness},
+        )
+        return [types.TextContent(type="text", text=f"Set {entity_id} brightness to {brightness}")]
+
+    elif name == "set_light_color":
+        entity_id = arguments["entity_id"]
+        red = arguments["red"]
+        green = arguments["green"]
+        blue = arguments["blue"]
+
+        requests.post(
+            f"{HA_URL}/api/services/light/turn_on",
+            headers=headers,
+            json={"entity_id": entity_id, "rgb_color": [red, green, blue]},
+        )
+        return [types.TextContent(type="text", text=f"Set {entity_id} color to RGB({red}, {green}, {blue})")]
 
     elif name == "get_temperature":
         # Get all entities
@@ -490,7 +608,7 @@ async def handle_call_tool(
         response = requests.get(f"{HA_URL}/api/states", headers=headers)
         states = response.json()
 
-        # Filter cameras - exclude demo cameras, only show laptop_camera
+        # Filter cameras - exclude demo cameras, only show logitechusb
         cameras = [
             entity
             for entity in states
@@ -524,34 +642,51 @@ async def handle_call_tool(
         ]
 
     elif name == "send_camera_snapshot":
-        entity_id = arguments["entity_id"]
+        entity_id = arguments.get("entity_id", "camera.logitechusb")
 
         # Block demo cameras
         if entity_id.startswith("camera.demo") or "demo" in entity_id.lower():
             return [
                 types.TextContent(
                     type="text",
-                    text=f"Error: Demo cameras are not supported. Please use camera.laptop_camera instead.",
+                    text=f"Error: Demo cameras are not supported. Please use camera.logitechusb instead.",
                 )
             ]
 
-        # Call the custom Home Assistant script
-        response = requests.post(
-            f"{HA_URL}/api/services/script/send_camera_snapshot",
-            headers=headers,
-            json={"entity_id": entity_id},
-        )
+        try:
+            # Send via Telegram using camera proxy URL
+            # Pass authentication so HA can fetch the authenticated camera proxy URL
+            telegram_response = requests.post(
+                f"{HA_URL}/api/services/telegram_bot/send_photo",
+                headers=headers,
+                json={
+                    "target": TELEGRAM_CHAT_ID,
+                    "url": f"{HA_URL}/api/camera_proxy/{entity_id}",
+                    "caption": f"Snapshot from {entity_id}",
+                    "authentication": "bearer_token",
+                    "password": HA_TOKEN,
+                },
+            )
 
-        # Check if request was successful
-        if response.status_code == 200:
-            return [
-                types.TextContent(type="text", text=f"Snapshot sent for {entity_id}")
-            ]
-        else:
+            if telegram_response.status_code in [200, 204]:
+                return [
+                    types.TextContent(
+                        type="text", text=f"Snapshot from {entity_id} sent to Telegram"
+                    )
+                ]
+            else:
+                error_details = telegram_response.text
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Error sending to Telegram: {telegram_response.status_code}\nResponse: {error_details}\nURL sent: {HA_URL}/api/camera_proxy/{entity_id}",
+                    )
+                ]
+        except Exception as e:
             return [
                 types.TextContent(
                     type="text",
-                    text=f"Error calling script: {response.status_code} - {response.text}",
+                    text=f"Error sending snapshot: {str(e)}",
                 )
             ]
 
@@ -563,33 +698,30 @@ async def handle_call_tool(
             return [
                 types.TextContent(
                     type="text",
-                    text=f"Error: Demo cameras are not supported. Please use camera.laptop_camera instead."
+                    text=f"Error: Demo cameras are not supported. Please use camera.logitechusb instead.",
                 )
             ]
 
         # Get camera snapshot from Home Assistant
         try:
             response = requests.get(
-                f"{HA_URL}/api/camera_proxy/{entity_id}",
-                headers=headers,
-                timeout=10
+                f"{HA_URL}/api/camera_proxy/{entity_id}", headers=headers, timeout=10
             )
 
             if response.status_code == 200:
                 # Encode image to base64
-                image_base64 = base64.b64encode(response.content).decode('utf-8')
+                image_base64 = base64.b64encode(response.content).decode("utf-8")
 
                 # Return image content
                 return [
                     types.ImageContent(
                         type="image",
                         data=image_base64,
-                        mimeType=response.headers.get('Content-Type', 'image/jpeg')
+                        mimeType=response.headers.get("Content-Type", "image/jpeg"),
                     ),
                     types.TextContent(
-                        type="text",
-                        text=f"Camera snapshot from {entity_id}"
-                    )
+                        type="text", text=f"Camera snapshot from {entity_id}"
+                    ),
                 ]
             else:
                 return [
@@ -611,12 +743,16 @@ async def handle_call_tool(
         states = response.json()
 
         # Filter switches
-        switches = [entity for entity in states if entity["entity_id"].startswith("switch.")]
+        switches = [
+            entity for entity in states if entity["entity_id"].startswith("switch.")
+        ]
 
         output = f"Found {len(switches)} switch(es):\n\n"
         for switch in switches:
             state = switch["state"]
-            friendly_name = switch["attributes"].get("friendly_name", switch["entity_id"])
+            friendly_name = switch["attributes"].get(
+                "friendly_name", switch["entity_id"]
+            )
             output += f"- {switch['entity_id']} ({friendly_name}): {state}\n"
 
         return [types.TextContent(type="text", text=output)]
@@ -653,12 +789,18 @@ async def handle_call_tool(
         states = response.json()
 
         # Filter media players
-        media_players = [entity for entity in states if entity["entity_id"].startswith("media_player.")]
+        media_players = [
+            entity
+            for entity in states
+            if entity["entity_id"].startswith("media_player.")
+        ]
 
         output = f"Found {len(media_players)} media player(s):\n\n"
         for player in media_players:
             state = player["state"]
-            friendly_name = player["attributes"].get("friendly_name", player["entity_id"])
+            friendly_name = player["attributes"].get(
+                "friendly_name", player["entity_id"]
+            )
             output += f"- {player['entity_id']} ({friendly_name}): {state}\n"
 
         return [types.TextContent(type="text", text=output)]
@@ -668,12 +810,16 @@ async def handle_call_tool(
         states = response.json()
 
         # Filter TTS entities
-        tts_engines = [entity for entity in states if entity["entity_id"].startswith("tts.")]
+        tts_engines = [
+            entity for entity in states if entity["entity_id"].startswith("tts.")
+        ]
 
         output = f"Found {len(tts_engines)} TTS engine(s):\n\n"
         for engine in tts_engines:
             state = engine["state"]
-            friendly_name = engine["attributes"].get("friendly_name", engine["entity_id"])
+            friendly_name = engine["attributes"].get(
+                "friendly_name", engine["entity_id"]
+            )
             output += f"- {engine['entity_id']} ({friendly_name}): {state}\n"
 
         return [types.TextContent(type="text", text=output)]
@@ -687,24 +833,31 @@ async def handle_call_tool(
         if not media_player_entity_id:
             response = requests.get(f"{HA_URL}/api/states", headers=headers)
             states = response.json()
-            media_players = [entity for entity in states if entity["entity_id"].startswith("media_player.")]
+            media_players = [
+                entity
+                for entity in states
+                if entity["entity_id"].startswith("media_player.")
+            ]
 
             if media_players:
                 media_player_entity_id = media_players[0]["entity_id"]
             else:
-                return [types.TextContent(type="text", text="Error: No media players found. Please specify a media player entity ID.")]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="Error: No media players found. Please specify a media player entity ID.",
+                    )
+                ]
 
         # Use tts.speak service with google_translate_tts
         # Try the new format first (Home Assistant 2024+)
         payload = {
-            "target": {
-                "entity_id": "tts.google_translate_en_com"
-            },
+            "target": {"entity_id": "tts.google_translate_en_com"},
             "data": {
                 "media_player_entity_id": media_player_entity_id,
                 "message": message,
                 "language": language,
-            }
+            },
         }
 
         response = requests.post(
@@ -714,7 +867,12 @@ async def handle_call_tool(
         )
 
         if response.status_code in [200, 204]:
-            return [types.TextContent(type="text", text=f"Speaking: '{message}' on {media_player_entity_id}")]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Speaking: '{message}' on {media_player_entity_id}",
+                )
+            ]
         else:
             # If that fails, try the legacy format
             legacy_payload = {
@@ -731,9 +889,19 @@ async def handle_call_tool(
             )
 
             if response2.status_code in [200, 204]:
-                return [types.TextContent(type="text", text=f"Speaking: '{message}' on {media_player_entity_id}")]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Speaking: '{message}' on {media_player_entity_id}",
+                    )
+                ]
             else:
-                return [types.TextContent(type="text", text=f"Error: {response.status_code} - {response.text}\n\nNew payload: {payload}\n\nLegacy payload: {legacy_payload}\n\nLegacy response: {response2.status_code} - {response2.text}")]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Error: {response.status_code} - {response.text}\n\nNew payload: {payload}\n\nLegacy payload: {legacy_payload}\n\nLegacy response: {response2.status_code} - {response2.text}",
+                    )
+                ]
 
     else:
         raise ValueError(f"Unknown tool: {name}")
