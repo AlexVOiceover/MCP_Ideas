@@ -1,4 +1,4 @@
-#!/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python
+#!C:\Users\Alexander\Documents\FAC\MCP_Ideas\.venv\Scripts\python.exe
 
 import asyncio
 from typing import Any
@@ -13,12 +13,124 @@ import os
 from datetime import datetime
 import logging
 import re
+import sys
+import platform
 
 # cv2 is imported lazily when camera features are used
 # to avoid failing on systems without graphics libraries
 
 # Suppress djitellopy's verbose logging to avoid interfering with MCP stdio protocol
 logging.getLogger('djitellopy').setLevel(logging.WARNING)
+
+# Windows-specific fix for video streaming
+# PyAV's av.open() fails with Error 10014 on Windows when opening UDP streams
+# Solution: Use OpenCV VideoCapture which handles Windows UDP correctly
+if platform.system() == 'Windows':
+    import djitellopy.tello
+    from djitellopy import TelloException
+    from threading import Thread, Lock
+    from collections import deque
+    import numpy as np
+    try:
+        import cv2
+        OPENCV_AVAILABLE = True
+    except ImportError:
+        OPENCV_AVAILABLE = False
+
+    class WindowsOpenCVFrameRead:
+        """Windows-compatible frame reader using OpenCV instead of PyAV"""
+
+        def __init__(self, tello, address, with_queue=False, maxsize=32):
+            """Initialize using OpenCV VideoCapture (works on Windows)"""
+            if not OPENCV_AVAILABLE:
+                raise TelloException("OpenCV is required for Windows video streaming")
+
+            self.address = address
+            self.lock = Lock()
+            self.frame = np.zeros([300, 400, 3], dtype=np.uint8)
+            self.frames = deque([], maxsize)
+            self.with_queue = with_queue
+            self.stopped = False
+
+            # OpenCV can open UDP streams on Windows (unlike PyAV)
+            # Use udp://0.0.0.0:11111 format
+            udp_url = f'udp://0.0.0.0:{tello.VS_UDP_PORT}'
+
+            djitellopy.tello.Tello.LOGGER.info(f'Opening video stream with OpenCV: {udp_url}')
+
+            # Create VideoCapture with UDP URL
+            self.cap = cv2.VideoCapture(udp_url, cv2.CAP_FFMPEG)
+
+            if not self.cap.isOpened():
+                raise TelloException(
+                    f'Failed to open video stream with OpenCV.\n'
+                    f'URL: {udp_url}\n'
+                    f'Make sure:\n'
+                    f'1. Tello is connected and powered on\n'
+                    f'2. You called streamon() before get_frame_read()\n'
+                    f'3. Firewall allows UDP port {tello.VS_UDP_PORT}'
+                )
+
+            # Try to grab first frame (with retries for Windows)
+            djitellopy.tello.Tello.LOGGER.debug('Attempting to grab first frame...')
+            max_attempts = 30  # Try for ~3 seconds
+            attempt = 0
+            self.grabbed = False
+
+            while not self.grabbed and attempt < max_attempts:
+                self.grabbed, self.frame = self.cap.read()
+                if self.grabbed and self.frame is not None:
+                    djitellopy.tello.Tello.LOGGER.info(f'Successfully grabbed first frame on attempt {attempt + 1}')
+                    break
+                attempt += 1
+                import time
+                time.sleep(0.1)
+
+            if not self.grabbed or self.frame is None:
+                self.cap.release()
+                raise TelloException(
+                    f'Failed to grab first frame after {max_attempts} attempts.\n'
+                    f'The stream opened but no video data arrived.\n'
+                    f'This usually means the drone is not actually streaming.'
+                )
+
+            # Start background thread to continuously update frames
+            self.worker = Thread(target=self.update_frame, args=(), daemon=True)
+            self.worker.start()
+
+            djitellopy.tello.Tello.LOGGER.info('Windows OpenCV video stream started successfully')
+
+        def update_frame(self):
+            """Background thread that continuously reads frames"""
+            while not self.stopped:
+                if self.cap.isOpened():
+                    grabbed, frame = self.cap.read()
+                    if grabbed and frame is not None:
+                        with self.lock:
+                            self.frame = frame
+                            if self.with_queue:
+                                self.frames.append(frame)
+                else:
+                    break
+
+        def stop(self):
+            """Stop the background thread and release resources"""
+            self.stopped = True
+            if hasattr(self, 'cap'):
+                self.cap.release()
+
+    # Patch the get_frame_read method to use OpenCV on Windows
+    original_get_frame_read = djitellopy.tello.Tello.get_frame_read
+
+    def patched_get_frame_read(self, *args, **kwargs):
+        """Patched version that uses OpenCV VideoCapture on Windows"""
+        address = f'udp://0.0.0.0:{self.VS_UDP_PORT}'
+        return WindowsOpenCVFrameRead(self, address)
+
+    # Apply the patch
+    djitellopy.tello.Tello.get_frame_read = patched_get_frame_read
+
+    djitellopy.tello.Tello.LOGGER.info('Applied Windows OpenCV video streaming patch')
 
 
 # Create server instance
@@ -265,7 +377,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="start_video_stream",
-            description="Start the video stream from the drone's camera. Note: Requires UDP video packets (port 11111) which may be blocked by firewalls in WSL/Windows.",
+            description="Start the video stream from the drone's camera. Windows uses OpenCV instead of PyAV for UDP compatibility. Requires UDP video packets (port 11111).",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -281,7 +393,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_snapshot",
-            description="Capture a snapshot from the drone's camera and display it. Requires start_video_stream to be called first. May not work in WSL/Windows due to firewall blocking UDP video packets.",
+            description="Capture a snapshot from the drone's camera and display it. Requires start_video_stream to be called first. Windows UDP compatibility enabled.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -289,7 +401,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="save_snapshot",
-            description="Capture a snapshot from the drone's camera and save it to disk. Requires start_video_stream to be called first. May not work in WSL/Windows due to firewall blocking UDP video packets.",
+            description="Capture a snapshot from the drone's camera and save it to disk. Requires start_video_stream to be called first. Windows UDP compatibility enabled.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -638,15 +750,21 @@ async def handle_call_tool(
             frame_read = tello.get_frame_read()
             stream_active = True
 
-            return [types.TextContent(type="text", text="Video stream started successfully. You can now capture snapshots.")]
+            platform_note = ""
+            if platform.system() == 'Windows':
+                platform_note = " (Using OpenCV for Windows UDP compatibility)"
+
+            return [types.TextContent(type="text", text=f"Video stream started successfully{platform_note}. You can now capture snapshots.")]
         except Exception as e:
             stream_active = False
             frame_read = None
             error_msg = str(e)
 
             # Provide helpful context for common errors
-            if "unsuccessful" in error_msg or "Did not receive a response" in error_msg:
-                return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}\n\nNote: Video streaming requires UDP video packets (port 11111) which are often blocked by firewalls in WSL/Windows environments. The video stream uses the same UDP protocol that state packets use, which appears to be blocked in your setup. Camera features may not work without proper network configuration.")]
+            if "10014" in error_msg or "WSAEFAULT" in error_msg or "FIREWALL FIX REQUIRED" in error_msg:
+                return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}\n\n🔧 QUICK FIX - Windows Firewall is likely blocking UDP port 11111:\n\n1. Open PowerShell as Administrator\n2. Navigate to: C:\\Users\\Alexander\\Documents\\FAC\\MCP_Ideas\n3. Run: .\\add_firewall_rule.ps1\n\nThis will create a firewall rule allowing Tello video streaming.\n\n✅ ALTERNATIVE:\nAll drone control commands (takeoff, land, move, rotate, etc.) work perfectly without video!\nYou can fully control the drone - camera is optional.\n\n📖 For more details, see README.md")]
+            elif "unsuccessful" in error_msg or "Did not receive a response" in error_msg:
+                return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}\n\nNote: Video streaming requires UDP video packets (port 11111) which may be blocked by firewalls or network configuration. The video stream uses UDP protocol to receive video data from the drone.")]
             else:
                 return [types.TextContent(type="text", text=f"Failed to start video stream: {error_msg}")]
 

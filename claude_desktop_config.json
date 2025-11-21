@@ -1,17 +1,15 @@
 {
   "mcpServers": {
     "tello_drone_server": {
-      "command": "wsl",
+      "command": "C:/Users/Alexander/Documents/FAC/MCP_Ideas/.venv/Scripts/python.exe",
       "args": [
-        "/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python",
-        "/home/alex/FAC/workshops/MCP_Ideas/server_tello.py"
+        "C:/Users/Alexander/Documents/FAC/MCP_Ideas/server_tello.py"
       ]
     },
     "home_assistant_server": {
-      "command": "wsl",
+      "command": "C:/Users/Alexander/Documents/FAC/MCP_Ideas/.venv/Scripts/python.exe",
       "args": [
-        "/home/alex/FAC/workshops/MCP_Ideas/.venv/bin/python",
-        "/home/alex/FAC/workshops/MCP_Ideas/server_home_assistant.py"
+        "C:/Users/Alexander/Documents/FAC/MCP_Ideas/server_home_assistant.py"
       ]
     }
   }
