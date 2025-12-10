@@ -3,3 +3,6 @@ djitellopy
 requests
 gtts
 pygame
+pytest
+pytest-asyncio
+pytest-cov
