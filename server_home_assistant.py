@@ -91,7 +91,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "brightness": {
                         "type": "number",
                         "description": "Brightness level: 0-255 for absolute value, or 0-100 for percentage (will be converted to 0-255)",
-                    }
+                    },
                 },
                 "required": ["entity_id", "brightness"],
             },
@@ -117,7 +117,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "blue": {
                         "type": "number",
                         "description": "Blue value (0-255)",
-                    }
+                    },
                 },
                 "required": ["entity_id", "red", "green", "blue"],
             },
@@ -390,35 +390,60 @@ async def handle_call_tool(
     }
 
     if name == "get_lights":
-        # Get all entities
-        response = requests.get(f"{HA_URL}/api/states", headers=headers)
-        states = response.json()
+        try:
+            # Get all entities
+            response = requests.get(f"{HA_URL}/api/states", headers=headers)
+            states = response.json()
 
-        # Filter only lights
-        lights = [
-            entity for entity in states if entity["entity_id"].startswith("light.")
-        ]
+            # Filter only lights
+            lights = [
+                entity for entity in states if entity["entity_id"].startswith("light.")
+            ]
 
-        output = f"Found {len(lights)} light(s):\n\n"
-        for light in lights:
-            state = light["state"]
-            brightness = light["attributes"].get("brightness", "N/A")
-            output += f"- {light['entity_id']}: {state}"
-            if brightness != "N/A":
-                output += f" (brightness: {brightness})"
-            output += "\n"
+            output = f"Found {len(lights)} light(s):\n\n"
+            for light in lights:
+                state = light["state"]
+                brightness = light["attributes"].get("brightness", "N/A")
+                output += f"- {light['entity_id']}: {state}"
+                if brightness != "N/A":
+                    output += f" (brightness: {brightness})"
+                output += "\n"
 
-        return [types.TextContent(type="text", text=output)]
+            return [types.TextContent(type="text", text=output)]
+        except requests.exceptions.ConnectionError as e:
+            return [
+                types.TextContent(
+                    type="text", text=f"Failed to get lights: Network unreachable"
+                )
+            ]
+        except Exception as e:
+            return [
+                types.TextContent(type="text", text=f"Failed to get lights: {str(e)}")
+            ]
 
     elif name == "toggle_light":
         entity_id = arguments["entity_id"]
-        # Toggle the light
-        response = requests.post(
-            f"{HA_URL}/api/services/light/toggle",
-            headers=headers,
-            json={"entity_id": entity_id},
-        )
-        return [types.TextContent(type="text", text=f"Toggled {entity_id}")]
+        try:
+            # Toggle the light
+            response = requests.post(
+                f"{HA_URL}/api/services/light/toggle",
+                headers=headers,
+                json={"entity_id": entity_id},
+            )
+            return [types.TextContent(type="text", text=f"Toggled {entity_id}")]
+        except requests.exceptions.Timeout:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Failed to toggle {entity_id}: Connection timeout",
+                )
+            ]
+        except Exception as e:
+            return [
+                types.TextContent(
+                    type="text", text=f"Failed to toggle {entity_id}: {str(e)}"
+                )
+            ]
 
     elif name == "turn_on_light":
         entity_id = arguments["entity_id"]
@@ -451,7 +476,11 @@ async def handle_call_tool(
             headers=headers,
             json={"entity_id": entity_id, "brightness": brightness},
         )
-        return [types.TextContent(type="text", text=f"Set {entity_id} brightness to {brightness}")]
+        return [
+            types.TextContent(
+                type="text", text=f"Set {entity_id} brightness to {brightness}"
+            )
+        ]
 
     elif name == "set_light_color":
         entity_id = arguments["entity_id"]
@@ -464,7 +493,12 @@ async def handle_call_tool(
             headers=headers,
             json={"entity_id": entity_id, "rgb_color": [red, green, blue]},
         )
-        return [types.TextContent(type="text", text=f"Set {entity_id} color to RGB({red}, {green}, {blue})")]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Set {entity_id} color to RGB({red}, {green}, {blue})",
+            )
+        ]
 
     elif name == "get_temperature":
         # Get all entities
